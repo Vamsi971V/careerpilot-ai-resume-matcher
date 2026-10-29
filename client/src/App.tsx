@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
 import {
   FileText,
-  Upload,
+  
   BriefcaseBusiness,
   Target,
   Sparkles,
@@ -445,7 +445,7 @@ function App() {
       );
 
       setNotice(
-        `Compared your resume with ${data.totalJobs ?? jobs.length} jobs.`
+       `Compared your resume with ${jobs.length} jobs.`
       );
     } catch (err) {
       setError(
