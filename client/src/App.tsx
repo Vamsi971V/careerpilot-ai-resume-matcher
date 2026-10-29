@@ -190,6 +190,7 @@ function App() {
   const [page, setPage] = useState<Page>("dashboard");
   const [stats, setStats] = useState<DashboardStats>(emptyStats);
   const [history, setHistory] = useState<AnalysisResult[]>([]);
+  const [analyzerFile, setAnalyzerFile] = useState<File | null>(null);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState("");
@@ -266,17 +267,15 @@ function App() {
   }
 
   function handleAnalyzerFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const file = event.target.files?.[0];
+  if (!file) return;
 
-    if (validatePdf(file)) {
-      setSelectedFile(file);
-      setAnalysis(null);
-      setNotice("");
-    }
-
-    event.target.value = "";
+  if (validatePdf(file)) {
+    setSelectedFile(file);
+    setAnalysis(null);
+    setNotice("");
   }
+}
 
   function handleMatcherFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -288,7 +287,7 @@ function App() {
       setNotice("");
     }
 
-    event.target.value = "";
+    
   }
 
   async function handleAnalyze() {
@@ -998,19 +997,19 @@ function App() {
                   Upload resume (PDF, maximum 5 MB)
                 </label>
 
-                <input
-                  id="resume-upload"
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  onChange={handleAnalyzerFile}
-                  style={{ display: "block", marginBottom: 20 }}
-                />
+               <input
+  id="resume-upload"
+  type="file"
+  accept=".pdf,application/pdf"
+  onChange={handleAnalyzerFile}
+  style={{ display: "block", marginBottom: 20 }}
+/>
 
-                {selectedFile && (
-                  <p style={{ color: "#168653", fontSize: 13 }}>
-                    Selected: {selectedFile.name}
-                  </p>
-                )}
+{selectedFile && (
+  <p style={{ color: "green", marginTop: 8 }}>
+    Selected: {selectedFile.name}
+  </p>
+)}
 
                 <label
                   htmlFor="job-description"
