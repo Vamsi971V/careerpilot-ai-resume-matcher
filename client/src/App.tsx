@@ -190,7 +190,7 @@ function App() {
   const [page, setPage] = useState<Page>("dashboard");
   const [stats, setStats] = useState<DashboardStats>(emptyStats);
   const [history, setHistory] = useState<AnalysisResult[]>([]);
-  const [analyzerFile, setAnalyzerFile] = useState<File | null>(null);
+ 
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState("");
