@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import "./App.css";
 
-const API_URL = "http://localhost:5000";
+const API_URL = "https://careerpilot-ai-resume-matcher.onrender.com";
 
 type AnalysisResult = {
   id?: string;
