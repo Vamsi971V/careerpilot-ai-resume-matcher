@@ -35,64 +35,112 @@ const upload = multer({
 
 // -------------------- SKILLS --------------------
 
-const skills = [
-  "JavaScript",
-  "TypeScript",
-  "Node.js",
-  "Express.js",
-  "React.js",
-  "React",
-  "Java",
-  "Python",
-  "C++",
-  "C",
-  "SQL",
-  "MySQL",
-  "MongoDB",
-  "HTML",
-  "CSS",
-  "Git",
-  "GitHub",
-  "REST API",
-  "AWS",
-  "Docker",
-  "DSA",
-  "Data Structures",
-  "Machine Learning",
-  "Communication",
-  "Postman",
-];
 
-function escapeRegex(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function normalizeText(text = "") {
+  return String(text)
+    .toLowerCase()
+    .replace(/c\+\+/g, " cpp ")
+    .replace(/c#/g, " csharp ")
+    .replace(/\.net/g, " dotnet ")
+    .replace(/node\.js/g, " nodejs ")
+    .replace(/react\.js/g, " reactjs ")
+    .replace(/[^a-z0-9+#.\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-function containsSkill(text, skill) {
-  const escaped = escapeRegex(skill);
-  const pattern = new RegExp(
-    `(^|[^a-zA-Z0-9+#.])${escaped}(?=$|[^a-zA-Z0-9+#.])`,
-    "i"
-  );
+const stopWords = new Set([
+  "a", "an", "and", "are", "as", "at", "be", "been",
+  "being", "by", "for", "from", "had", "has", "have",
+  "he", "her", "his", "in", "into", "is", "it", "its",
+  "of", "on", "or", "our", "ours", "she", "that", "the",
+  "their", "them", "they", "this", "those", "to", "was",
+  "were", "will", "with", "within", "you", "your", "we",
+  "who", "what", "when", "where", "which", "while", "can",
+  "could", "should", "would", "must", "may", "might", "not",
+  "than", "then", "also", "such", "other", "more", "most",
+  "some", "any", "all", "each", "both", "etc", "job", "role",
+  "position", "candidate", "candidates", "responsibilities",
+  "responsibility", "requirements", "required", "preferred",
+  "qualification", "qualifications", "experience", "years",
+  "year", "work", "working", "ability", "abilities", "knowledge",
+  "skills", "skill", "strong", "good", "excellent", "relevant",
+  "including", "using", "use", "used", "support", "ensure",
+  "help", "team", "teams", "various", "related", "appropriate"
+]);
 
-  return pattern.test(text || "");
+
+function getKeywords(text = "") {
+  const normalized = normalizeText(text);
+
+  const words = normalized
+    .split(/\s+/)
+    .filter(
+      (word) =>
+        word.length > 1 &&
+        !stopWords.has(word) &&
+        !/^\d+$/.test(word)
+    );
+
+  // Keep individual keywords and meaningful adjacent phrases.
+  const keywords = new Set(words);
+
+  for (let i = 0; i < words.length - 1; i++) {
+    keywords.add(`${words[i]} ${words[i + 1]}`);
+  }
+
+  for (let i = 0; i < words.length - 2; i++) {
+    keywords.add(`${words[i]} ${words[i + 1]} ${words[i + 2]}`);
+  }
+
+  return keywords;
 }
 
-function getRequiredSkills(text) {
-  const found = skills.filter((skill) => containsSkill(text, skill));
-  const hasReactJs = found.includes("React.js");
+function getRequiredSkills(text = "") {
+  const keywords = getKeywords(text);
 
-  return found.filter((skill) => {
-    if (skill === "React" && hasReactJs) {
+  // Ignore generic words that do not describe a useful requirement.
+  const genericTerms = new Set([
+    "experience",
+    "years",
+    "year",
+    "work",
+    "working",
+    "role",
+    "responsibilities",
+    "responsibility",
+    "candidate",
+    "team",
+    "ability",
+    "skills",
+    "skill",
+    "knowledge",
+    "strong",
+    "good",
+    "excellent",
+    "required",
+    "preferred",
+    "including",
+    "using",
+    "related",
+    "development",
+  ]);
+
+  return [...keywords].filter((keyword) => {
+    if (keyword.length < 2 || /^\d+$/.test(keyword)) {
       return false;
     }
 
-    if (skill === "DSA" && found.includes("Data Structures")) {
+    // Filter generic single words but retain useful phrases.
+    if (!keyword.includes(" ") && genericTerms.has(keyword)) {
       return false;
     }
 
     return true;
   });
 }
+
+
 
 function generateSuggestions(
   resumeText,
@@ -148,24 +196,27 @@ function generateSuggestions(
 
 let analysesCollection;
 
+
+
 function calculateMatch(resumeText, jobDescription) {
-  const requiredSkills = getRequiredSkills(jobDescription);
+  const resumeKeywords = getKeywords(resumeText || "");
+  const requiredSkills = getRequiredSkills(jobDescription || "");
 
   const matchedSkills = requiredSkills.filter((skill) =>
-    containsSkill(resumeText, skill)
+    resumeKeywords.has(skill)
   );
 
   const missingSkills = requiredSkills.filter(
-    (skill) => !matchedSkills.includes(skill)
+    (skill) => !resumeKeywords.has(skill)
   );
 
   const matchScore =
     requiredSkills.length > 0
       ? Math.round((matchedSkills.length / requiredSkills.length) * 100)
-      : null;
+      : 0;
 
   const suggestions = generateSuggestions(
-    resumeText,
+    resumeText || "",
     matchedSkills,
     missingSkills,
     requiredSkills
@@ -179,6 +230,7 @@ function calculateMatch(resumeText, jobDescription) {
     suggestions,
   };
 }
+
 // -------------------- BASIC ROUTES --------------------
 
 app.get("/", (req, res) => {

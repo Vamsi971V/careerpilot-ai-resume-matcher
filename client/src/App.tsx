@@ -27,7 +27,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString();
 
-const API_URL = "https://careerpilot-ai-resume-matcher.onrender.com";
+const API_URL = "http://localhost:5000";
 
 type AnalysisResult = {
   id?: string;
@@ -1619,95 +1619,120 @@ function App() {
         return;
       }
 
-      const resume = resumeText.toLowerCase();
-      const jd = jobDescription.toLowerCase();
+     
 
-      const skills: {
-        name: string;
-        pattern: RegExp;
-      }[] = [
-        { name: "Java", pattern: /\bjava\b/i },
-        { name: "Python", pattern: /\bpython\b/i },
-        { name: "JavaScript", pattern: /\bjavascript\b/i },
-        { name: "TypeScript", pattern: /\btypescript\b/i },
-        { name: "C++", pattern: /c\+\+/i },
-        { name: "React.js", pattern: /\breact(?:\.js)?\b/i },
-        { name: "Node.js", pattern: /\bnode(?:\.js)?\b/i },
-        { name: "Express.js", pattern: /\bexpress(?:\.js)?\b/i },
-        { name: "HTML5", pattern: /\bhtml5?\b/i },
-        { name: "CSS3", pattern: /\bcss3?\b/i },
-        { name: "MongoDB", pattern: /\bmongodb\b/i },
-        { name: "MySQL", pattern: /\bmysql\b/i },
-        { name: "SQL", pattern: /\bsql\b/i },
-        { name: "REST APIs", pattern: /\brest\s*apis?\b/i },
-        { name: "Git", pattern: /\bgit\b/i },
-        { name: "GitHub", pattern: /\bgithub\b/i },
-        {
-          name: "Data Structures and Algorithms",
-          pattern: /\b(?:data structures and algorithms|dsa)\b/i
-        },
-        {
-          name: "Object-Oriented Programming",
-          pattern: /\b(?:object[- ]oriented programming|oop)\b/i
-        },
-        {
-          name: "Problem-solving",
-          pattern: /\bproblem[- ]solving\b/i
-        },
-        {
-          name: "Communication",
-          pattern: /\bcommunication\b/i
-        },
-        {
-          name: "Debugging",
-          pattern: /\bdebug(?:ging)?\b/i
-        },
-        {
-          name: "Software Development",
-          pattern: /\bsoftware development\b/i
-        },
-        {
-          name: "Web Development",
-          pattern: /\bweb development\b/i
-        },
-        {
-          name: "MySQL Database",
-          pattern: /\bmysql database\b/i
-        }
-      ];
+const normalizeText = (text: string): string =>
+  text
+    .toLowerCase()
+    .replace(/c\+\+/g, " cpp ")
+    .replace(/c#/g, " csharp ")
+    .replace(/\.net/g, " dotnet ")
+    .replace(/node\.js/g, " nodejs ")
+    .replace(/react\.js/g, " reactjs ")
+    .replace(/[^a-z0-9+#.\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-      // Only assess skills mentioned in the job description.
-      const requiredSkills = skills.filter(skill =>
-        skill.pattern.test(jd)
+const stopWords = new Set([
+  "a", "an", "and", "are", "as", "at", "be", "been",
+  "being", "by", "for", "from", "had", "has", "have",
+  "he", "her", "his", "in", "into", "is", "it", "its",
+  "of", "on", "or", "our", "ours", "she", "that", "the",
+  "their", "them", "they", "this", "those", "to", "was",
+  "were", "will", "with", "within", "you", "your", "we",
+  "who", "what", "when", "where", "which", "while", "can",
+  "could", "should", "would", "must", "may", "might", "not",
+  "than", "then", "also", "such", "other", "more", "most",
+  "some", "any", "all", "each", "both", "etc", "job", "role",
+  "position", "candidate", "candidates", "responsibilities",
+  "responsibility", "requirements", "required", "preferred",
+  "qualification", "qualifications", "years", "year", "work",
+  "working", "ability", "abilities", "knowledge", "skills",
+  "skill", "strong", "good", "excellent", "relevant",
+  "including", "using", "use", "used", "support", "ensure",
+  "help", "team", "teams", "various", "related", "appropriate",
+  "experience", "description", "consistently", "individuals",
+  "expected", "demonstrating", "against", "others"
+]);
+
+const tokenize = (text: string): string[] =>
+  normalizeText(text)
+    .split(/\s+/)
+    .filter(word =>
+      word.length > 1 &&
+      !stopWords.has(word) &&
+      !/^\d+$/.test(word)
+    );
+
+// Build unique single words and meaningful phrases.
+const getTerms = (text: string): Set<string> => {
+  const words = tokenize(text);
+  const terms = new Set(words);
+
+  for (let i = 0; i < words.length; i++) {
+    if (i + 1 < words.length) {
+      terms.add(`${words[i]} ${words[i + 1]}`);
+    }
+    if (i + 2 < words.length) {
+      terms.add(
+        `${words[i]} ${words[i + 1]} ${words[i + 2]}`
       );
+    }
+  }
 
-      const matchedSkills = requiredSkills.filter(skill =>
-        skill.pattern.test(resume)
-      );
+  return terms;
+};
 
-      const missingSkills = requiredSkills.filter(skill =>
-        !skill.pattern.test(resume)
-      );
+const resumeTerms = getTerms(resumeText);
+const jdTerms = getTerms(jobDescription);
 
-      if (requiredSkills.length === 0) {
-        result.innerText =
-          "No supported skills were found in the job description. " +
-          "Try a JD that includes technical skills.";
-        return;
-      }
+// Prefer longer phrases when they match, so a phrase and
+// its component words are not all counted as separate matches.
+const matchedPhrases = Array.from(jdTerms)
+  .filter(term => term.includes(" ") && resumeTerms.has(term))
+  .sort((a, b) => b.length - a.length);
 
-      const score = Math.round(
-        (matchedSkills.length / requiredSkills.length) * 100
-      );
+const coveredWords = new Set<string>();
 
-      result.innerText =
-        `Estimated ATS Skill Match: ${score}%\n\n` +
-        `Matched skills: ${matchedSkills.length} of ${requiredSkills.length}\n\n` +
-        `Skills found in your resume:\n` +
-        (matchedSkills.map(skill => skill.name).join(", ") || "None") +
-        `\n\nSkills not detected:\n` +
-        (missingSkills.map(skill => skill.name).join(", ") || "None") +
-        `\n\nNote: This is a basic skill-match estimate, not an official ATS score.`;
+for (const phrase of matchedPhrases) {
+  const parts = phrase.split(" ");
+  if (parts.every(part => !coveredWords.has(part))) {
+    parts.forEach(part => coveredWords.add(part));
+  }
+}
+
+const requiredTerms = Array.from(jdTerms).filter(term => {
+  if (!term.includes(" ")) return true;
+
+  const parts = term.split(" ");
+  return !parts.every(part => coveredWords.has(part));
+});
+
+const matchedTerms = requiredTerms.filter(term =>
+  resumeTerms.has(term)
+);
+
+const missingTerms = requiredTerms.filter(term =>
+  !resumeTerms.has(term)
+);
+
+if (requiredTerms.length === 0) {
+  result.innerText = "No meaningful JD requirements were detected.";
+  return;
+}
+
+const score = Math.round(
+  (matchedTerms.length / requiredTerms.length) * 100
+);
+
+result.innerText =
+  `Estimated Resume–JD Keyword Match: ${score}%\n\n` +
+  `Matched terms: ${matchedTerms.length}\n` +
+  `Unique JD terms checked: ${requiredTerms.length}\n\n` +
+  `Common terms:\n${matchedTerms.join(", ") || "None"}\n\n` +
+  `Terms not detected:\n${missingTerms.join(", ") || "None"}\n\n` +
+  `Note: This is a rule-based keyword estimate, not an official ATS score.`;
+
 
     } catch (error) {
       result.innerText =
