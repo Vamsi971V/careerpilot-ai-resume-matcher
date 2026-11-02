@@ -1,15 +1,15 @@
 
 import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
+import mammoth from "mammoth";
+import * as pdfjsLib from "pdfjs-dist";
 import {
   FileText,
-  
   BriefcaseBusiness,
   Target,
   Sparkles,
   CheckCircle2,
   ArrowRight,
-  History,
   RefreshCw,
   LayoutDashboard,
   AlertCircle,
@@ -19,13 +19,20 @@ import {
   TrendingUp,
   Search,
 } from "lucide-react";
+
 import "./App.css";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url
+).toString();
 
 const API_URL = "https://careerpilot-ai-resume-matcher.onrender.com";
 
 type AnalysisResult = {
   id?: string;
   _id?: string;
+
   fileName?: string;
   matchScore: number | null;
   matchedSkills: string[];
@@ -56,7 +63,13 @@ type JobMatch = {
   suggestions: string[];
 };
 
-type Page = "dashboard" | "analyzer" | "matcher" | "history";
+type Page =
+  | "dashboard"
+  | "analyzer"
+  | "matcher"
+  | "history"
+  | "ats"
+  | "interview";
 
 const emptyStats: DashboardStats = {
   totalAnalyses: 0,
@@ -186,11 +199,47 @@ function SkillTags({
   );
 }
 
+
 function App() {
+
+  // Resume text extraction for PDF and DOCX files
+  const extractResumeText = async (file: File): Promise<string> => {
+    const extension = file.name.split(".").pop()?.toLowerCase();
+
+    if (extension === "pdf") {
+      const pdf = await pdfjsLib.getDocument({
+        data: await file.arrayBuffer(),
+      }).promise;
+
+      let text = "";
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+
+        text +=
+          content.items
+            .map((item) => ("str" in item ? item.str : ""))
+            .join(" ") + "\n";
+      }
+
+      return text.trim();
+    }
+
+    if (extension === "docx") {
+      const result = await mammoth.extractRawText({
+        arrayBuffer: await file.arrayBuffer(),
+      });
+
+      return result.value.trim();
+    }
+
+    throw new Error("Please upload a PDF or DOCX resume.");
+  };
+
   const [page, setPage] = useState<Page>("dashboard");
   const [stats, setStats] = useState<DashboardStats>(emptyStats);
   const [history, setHistory] = useState<AnalysisResult[]>([]);
- 
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState("");
@@ -208,6 +257,9 @@ function App() {
   useEffect(() => {
     void refreshDashboardData();
   }, []);
+
+  // Keep the rest of your existing App component below this line.
+
 
   async function refreshDashboardData() {
     setLoadingData(true);
@@ -496,7 +548,8 @@ function App() {
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "analyzer", label: "Resume Analyzer", icon: FileText },
     { id: "matcher", label: "Job Matcher", icon: BriefcaseBusiness },
-    { id: "history", label: "Analysis History", icon: History },
+  { id: "ats", label: "ATS Score Checker", icon: FileText },
+{ id: "interview", label: "Interview Preparation", icon: BriefcaseBusiness },
   ];
 
   return (
@@ -1426,124 +1479,845 @@ function App() {
 
           )}
 
-          {page === "history" && (
-            <>
-              <div style={{ marginBottom: 28 }}>
-                <h1 style={{ fontSize: 30, margin: "0 0 8px" }}>
-                  Analysis History
-                </h1>
-                <p style={{ color: "#94a3b8" }}>
-                  View your previous resume analyses and match scores.
-                </p>
-              </div>
+        {page === "ats" && (
+  <section style={{ color: "#f8fafc" }}>
+    <div style={{ marginBottom: 28 }}>
+      <h1 style={{ fontSize: 30 }}>ATS Resume Score Checker</h1>
+      <p style={{ color: "#94a3b8" }}>
+        Check your resume against a job description and discover ways to improve it.
+      </p>
+    </div>
 
-              <section
-                style={{
-                  background: "#111827",
-                  border: "1px solid #263247",
-                  borderRadius: 16,
-                  padding: 24,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 20,
-                    gap: 12,
-                  }}
-                >
-                  <h2 style={{ margin: 0 }}>Previous Analyses</h2>
-                  <button
-                    onClick={refreshDashboardData}
-                    style={{
-                      background: "#7c3aed",
-                      color: "white",
-                      border: 0,
-                      borderRadius: 8,
-                      padding: "10px 14px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Refresh
-                  </button>
-                </div>
+    <div style={{
+      background: "#111827",
+      border: "1px solid #263247",
+      borderRadius: 16,
+      padding: 24
+    }}>
+      
+<label>Upload or paste your resume text</label>
 
-                {history.length === 0 ? (
-                  <p style={{ color: "#94a3b8" }}>
-                    No analyses found. Analyze a resume to see it here.
-                  </p>
-                ) : (
-                  <div style={{ display: "grid", gap: 14 }}>
-                    {history.map((item) => (
-                      <div
-                        key={item.id || item._id || item.fileName}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          flexWrap: "wrap",
-                          gap: 16,
-                          padding: 18,
-                          border: "1px solid #263247",
-                          borderRadius: 12,
-                        }}
-                      >
-                        <div>
-                          <h3 style={{ margin: "0 0 8px", fontSize: 16 }}>
-                            {item.fileName}
-                          </h3>
-                          <p
-                            style={{
-                              margin: 0,
-                              color: "#94a3b8",
-                              fontSize: 13,
-                            }}
-                          >
-                            {item.createdAt
-                              ? formatDate(item.createdAt)
-                              : "Date unavailable"}
-                          </p>
-                        </div>
+<input
+  id="ats-resume-upload"
+  type="file"
+  accept=".pdf,.docx"
+  style={{
+    display: "block",
+    width: "100%",
+    boxSizing: "border-box",
+    margin: "10px 0",
+    padding: 12,
+    background: "#0b1220",
+    color: "white",
+    border: "1px solid #263247",
+    borderRadius: 8
+  }}
+  onChange={async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 14,
-                          }}
-                        >
-                          <strong
-                            style={{
-                              color: getScoreColor(item.matchScore),
-                              fontSize: 20,
-                            }}
-                          >
-                            {item.matchScore ?? 0}%
-                          </strong>
+    try {
+      const text = await extractResumeText(file);
+      const textarea = document.getElementById(
+        "ats-resume"
+      ) as HTMLTextAreaElement | null;
 
-                          <button
-                            onClick={() => viewHistoryItem(item)}
-                            style={{
-                              background: "#263247",
-                              color: "white",
-                              border: 0,
-                              borderRadius: 8,
-                              padding: "9px 12px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            View
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-            </>
-          )}
+      if (textarea) {
+        const setter = Object.getOwnPropertyDescriptor(
+          HTMLTextAreaElement.prototype,
+          "value"
+        )?.set;
+
+        setter?.call(textarea, text);
+        textarea.dispatchEvent(
+          new Event("input", { bubbles: true })
+        );
+      }
+
+      if (!text) {
+        alert("No readable text found in the resume.");
+      }
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Unable to read the resume."
+      );
+    }
+  }}
+/>
+
+
+
+
+      <label>Paste the job description</label>
+      <textarea
+        id="ats-job"
+        placeholder="Paste the target job description here..."
+        style={{
+          display: "block",
+          width: "100%",
+          minHeight: 140,
+          boxSizing: "border-box",
+          margin: "10px 0 20px",
+          padding: 14,
+          background: "#0b1220",
+          color: "white",
+          border: "1px solid #263247",
+          borderRadius: 8
+        }}
+      />
+
+  
+
+<button
+  onClick={async () => {
+    const resumeInput = document.getElementById(
+      "ats-resume-upload"
+    ) as HTMLInputElement | null;
+
+    const jobInput = document.getElementById(
+      "ats-job"
+    ) as HTMLTextAreaElement | null;
+
+    const result = document.getElementById("ats-result");
+
+    if (!resumeInput || !jobInput || !result) {
+      alert("Please check the ATS input element IDs.");
+      return;
+    }
+
+    const file = resumeInput.files?.[0];
+    const jobDescription = jobInput.value.trim();
+
+    if (!file) {
+      result.innerText = "Please upload your resume PDF.";
+      return;
+    }
+
+    if (
+      file.type !== "application/pdf" &&
+      !file.name.toLowerCase().endsWith(".pdf")
+    ) {
+      result.innerText = "Please upload a PDF file.";
+      return;
+    }
+
+    if (!jobDescription) {
+      result.innerText = "Please enter the job description.";
+      return;
+    }
+
+    result.innerText = "Analyzing your resume...";
+
+    try {
+      const resumeText = await extractResumeText(file);
+
+      if (!resumeText?.trim()) {
+        result.innerText =
+          "No readable text found in this PDF.";
+        return;
+      }
+
+      const resume = resumeText.toLowerCase();
+      const jd = jobDescription.toLowerCase();
+
+      const skills: {
+        name: string;
+        pattern: RegExp;
+      }[] = [
+        { name: "Java", pattern: /\bjava\b/i },
+        { name: "Python", pattern: /\bpython\b/i },
+        { name: "JavaScript", pattern: /\bjavascript\b/i },
+        { name: "TypeScript", pattern: /\btypescript\b/i },
+        { name: "C++", pattern: /c\+\+/i },
+        { name: "React.js", pattern: /\breact(?:\.js)?\b/i },
+        { name: "Node.js", pattern: /\bnode(?:\.js)?\b/i },
+        { name: "Express.js", pattern: /\bexpress(?:\.js)?\b/i },
+        { name: "HTML5", pattern: /\bhtml5?\b/i },
+        { name: "CSS3", pattern: /\bcss3?\b/i },
+        { name: "MongoDB", pattern: /\bmongodb\b/i },
+        { name: "MySQL", pattern: /\bmysql\b/i },
+        { name: "SQL", pattern: /\bsql\b/i },
+        { name: "REST APIs", pattern: /\brest\s*apis?\b/i },
+        { name: "Git", pattern: /\bgit\b/i },
+        { name: "GitHub", pattern: /\bgithub\b/i },
+        {
+          name: "Data Structures and Algorithms",
+          pattern: /\b(?:data structures and algorithms|dsa)\b/i
+        },
+        {
+          name: "Object-Oriented Programming",
+          pattern: /\b(?:object[- ]oriented programming|oop)\b/i
+        },
+        {
+          name: "Problem-solving",
+          pattern: /\bproblem[- ]solving\b/i
+        },
+        {
+          name: "Communication",
+          pattern: /\bcommunication\b/i
+        },
+        {
+          name: "Debugging",
+          pattern: /\bdebug(?:ging)?\b/i
+        },
+        {
+          name: "Software Development",
+          pattern: /\bsoftware development\b/i
+        },
+        {
+          name: "Web Development",
+          pattern: /\bweb development\b/i
+        },
+        {
+          name: "MySQL Database",
+          pattern: /\bmysql database\b/i
+        }
+      ];
+
+      // Only assess skills mentioned in the job description.
+      const requiredSkills = skills.filter(skill =>
+        skill.pattern.test(jd)
+      );
+
+      const matchedSkills = requiredSkills.filter(skill =>
+        skill.pattern.test(resume)
+      );
+
+      const missingSkills = requiredSkills.filter(skill =>
+        !skill.pattern.test(resume)
+      );
+
+      if (requiredSkills.length === 0) {
+        result.innerText =
+          "No supported skills were found in the job description. " +
+          "Try a JD that includes technical skills.";
+        return;
+      }
+
+      const score = Math.round(
+        (matchedSkills.length / requiredSkills.length) * 100
+      );
+
+      result.innerText =
+        `Estimated ATS Skill Match: ${score}%\n\n` +
+        `Matched skills: ${matchedSkills.length} of ${requiredSkills.length}\n\n` +
+        `Skills found in your resume:\n` +
+        (matchedSkills.map(skill => skill.name).join(", ") || "None") +
+        `\n\nSkills not detected:\n` +
+        (missingSkills.map(skill => skill.name).join(", ") || "None") +
+        `\n\nNote: This is a basic skill-match estimate, not an official ATS score.`;
+
+    } catch (error) {
+      result.innerText =
+        error instanceof Error
+          ? `Analysis failed: ${error.message}`
+          : "Unable to analyze your resume. Please try again.";
+    }
+  }}
+  style={{
+    padding: "12px 20px",
+    borderRadius: 8,
+    border: "none",
+    background: "#6366f1",
+    color: "#ffffff",
+    fontWeight: 600,
+    cursor: "pointer",
+  }}
+>
+  Check Resume Score
+</button>
+
+
+
+      <pre
+        id="ats-result"
+        style={{
+          whiteSpace: "pre-wrap",
+          lineHeight: 1.7,
+          color: "#cbd5e1",
+          marginTop: 24
+        }}
+      />
+      <p style={{ color: "#94a3b8", fontSize: 12 }}>
+        This is a basic keyword-match estimate, not an official ATS score.
+      </p>
+    </div>
+  </section>
+)}
+
+
+{page === "interview" && (
+  <section style={{ color: "#f8fafc" }}>
+    <div style={{ marginBottom: 28 }}>
+      <h1 style={{ fontSize: 30, margin: "0 0 8px" }}>
+        Interview Preparation Generator
+      </h1>
+      <p style={{ color: "#94a3b8" }}>
+        Generate interview questions based on your resume and job description.
+      </p>
+    </div>
+
+    <div
+      style={{
+        background: "#111827",
+        border: "1px solid #263247",
+        borderRadius: 16,
+        padding: 24,
+      }}
+    >
+    
+<label htmlFor="interview-resume-upload">
+  Upload Resume (PDF or DOCX)
+</label>
+
+<input
+  id="interview-resume-upload"
+  type="file"
+  accept=".pdf,.docx"
+  style={{
+    display: "block",
+    width: "100%",
+    boxSizing: "border-box",
+    margin: "10px 0",
+    padding: 12,
+    background: "#0b1220",
+    color: "white",
+    border: "1px solid #263247",
+    borderRadius: 8,
+  }}
+  onChange={async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await extractResumeText(file);
+
+      const textarea = document.getElementById(
+        "interview-resume"
+      ) as HTMLTextAreaElement | null;
+
+      if (textarea) {
+        const setter = Object.getOwnPropertyDescriptor(
+          HTMLTextAreaElement.prototype,
+          "value"
+        )?.set;
+
+        setter?.call(textarea, text);
+        textarea.dispatchEvent(
+          new Event("input", { bubbles: true })
+        );
+      }
+
+      if (!text) {
+        alert("No readable text found in the resume.");
+      }
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Unable to read the resume."
+      );
+    }
+  }}
+/>
+
+<label htmlFor="interview-resume">
+  Resume Text
+</label>
+
+<textarea
+  id="interview-resume"
+  placeholder="Paste your resume text, skills, projects, and experience..."
+  style={{
+    display: "block",
+    width: "100%",
+    minHeight: 160,
+    boxSizing: "border-box",
+    margin: "10px 0 20px",
+    padding: 14,
+    background: "#0b1220",
+    color: "white",
+    border: "1px solid #263247",
+    borderRadius: 8,
+    fontFamily: "inherit",
+  }}
+/>
+
+
+      <label htmlFor="interview-jd">
+        
+        Job Description (JD)
+      </label>
+      <textarea
+        id="interview-jd"
+        placeholder="Paste the job description, required skills, and responsibilities..."
+        style={{
+          display: "block",
+          width: "100%",
+          minHeight: 160,
+          boxSizing: "border-box",
+          margin: "10px 0 20px",
+          padding: 14,
+          background: "#0b1220",
+          color: "white",
+          border: "1px solid #263247",
+          borderRadius: 8,
+          fontFamily: "inherit",
+        }}
+      />
+
+      <label htmlFor="interview-level">
+        Difficulty Level
+      </label>
+      <select
+        id="interview-level"
+        style={{
+          display: "block",
+          width: "100%",
+          margin: "10px 0 20px",
+          padding: 12,
+          background: "#0b1220",
+          color: "white",
+          border: "1px solid #263247",
+          borderRadius: 8,
+        }}
+      >
+        <option value="Beginner">Beginner</option>
+        <option value="Intermediate" selected>Intermediate</option>
+        <option value="Advanced">Advanced</option>
+      </select>
+
+      <button
+        onClick={() => {
+          const resume = (
+            document.getElementById("interview-resume") as HTMLTextAreaElement
+          ).value.trim();
+
+          const jd = (
+            document.getElementById("interview-jd") as HTMLTextAreaElement
+          ).value.trim();
+
+          const level = (
+            document.getElementById("interview-level") as HTMLSelectElement
+          ).value;
+
+          const output = document.getElementById("interview-result");
+
+          if (!resume || !jd) {
+            if (output) {
+              output.innerText =
+                "Please paste both your resume text and the job description.";
+            }
+            return;
+          }
+
+          const resumeLower = resume.toLowerCase();
+          const jdLower = jd.toLowerCase();
+
+          const skillBank = [
+            "Java", "Python", "JavaScript", "TypeScript", "React",
+            "Node.js", "Express", "MongoDB", "SQL", "MySQL",
+            "HTML", "CSS", "REST API", "Git", "GitHub",
+            "DSA", "data structures", "algorithms", "OOP",
+            "Spring Boot", "AWS", "Docker", "communication",
+            "problem solving", "machine learning", "TensorFlow",
+            "Flask", "Firebase", "JWT", "testing"
+          ];
+
+          const normalize = (value: string) =>
+            value.toLowerCase().replace(/[^a-z0-9+#.]/g, "");
+
+          const jdSkills = skillBank.filter(skill =>
+            jdLower.includes(skill.toLowerCase())
+          );
+
+          const resumeSkills = skillBank.filter(skill =>
+            resumeLower.includes(skill.toLowerCase())
+          );
+
+          const matchedSkills = jdSkills.filter(skill =>
+            resumeSkills.some(
+              resumeSkill => normalize(resumeSkill) === normalize(skill)
+            )
+          );
+
+          const missingSkills = jdSkills.filter(skill =>
+            !resumeSkills.some(
+              resumeSkill => normalize(resumeSkill) === normalize(skill)
+            )
+          );
+
+          const questions: {
+            category: string;
+            question: string;
+            answer: string;
+          }[] = [];
+
+          const add = (
+            category: string,
+            question: string,
+            answer: string
+          ) => questions.push({ category, question, answer });
+
+          // Resume-specific questions
+          add(
+            "Resume and Projects",
+            "Walk me through your most important project. What problem did it solve?",
+            "Explain the problem, your responsibilities, the technologies used, your implementation, and the outcome. Be ready to explain your own contribution."
+          );
+
+          add(
+            "Resume and Projects",
+            "What was the most challenging technical issue in your project, and how did you solve it?",
+            "Describe the issue, how you investigated it, the alternatives you considered, and why your final solution worked."
+          );
+
+          if (resumeLower.includes("intern")) {
+            add(
+              "Resume and Experience",
+              "What did you learn during your internship, and what work did you personally complete?",
+              "Explain your responsibilities, a specific task you completed, the tools you used, and what you learned."
+            );
+          }
+
+          if (
+            resumeLower.includes("react") ||
+            resumeLower.includes("mern")
+          ) {
+            add(
+              "Resume and Projects",
+              "How did you manage component state and API calls in your React project?",
+              "Explain the state management approach you used, how components communicate, how API requests are handled, and how loading and error states are managed."
+            );
+          }
+
+          if (
+            resumeLower.includes("mongodb") ||
+            resumeLower.includes("mysql") ||
+            resumeLower.includes("sql")
+          ) {
+            add(
+              "Resume and Projects",
+              "Explain your database design and how your application reads and updates data.",
+              "Discuss your tables or collections, relationships, validation, queries, indexes where relevant, and how the backend communicates with the database."
+            );
+          }
+
+          if (
+            resumeLower.includes("java") ||
+            resumeLower.includes("oop")
+          ) {
+            add(
+              "Resume and Technical Skills",
+              "How have you applied object-oriented programming in your project?",
+              "Give an example of encapsulation, inheritance, abstraction, or polymorphism from your code. Explain why the design was useful."
+            );
+          }
+
+          // JD-specific skill questions
+          const skillQuestions: Record<string, string[]> = {
+            "Java": [
+              "Explain the four pillars of object-oriented programming.",
+              "What is the difference between == and equals() in Java?",
+              "How do you handle exceptions in Java?"
+            ],
+            "Python": [
+              "What is the difference between a list and a tuple?",
+              "How do dictionaries work in Python?",
+              "How do you handle exceptions in Python?"
+            ],
+            "JavaScript": [
+              "Explain let, const, and var.",
+              "What are promises and async/await?",
+              "What is the difference between == and ===?"
+            ],
+            "TypeScript": [
+              "How does TypeScript differ from JavaScript?",
+              "What are interfaces and type aliases?",
+              "How do optional properties work?"
+            ],
+            "React": [
+              "What is the difference between props and state?",
+              "When would you use useEffect?",
+              "How can you reduce unnecessary React re-renders?"
+            ],
+            "Node.js": [
+              "How does the Node.js event loop work?",
+              "How do you handle errors in asynchronous code?",
+              "How would you structure a Node.js API?"
+            ],
+            "Express": [
+              "What is Express middleware?",
+              "How do you validate and handle API requests?",
+              "How do you implement centralized error handling?"
+            ],
+            "MongoDB": [
+              "When would you use an embedded document versus a reference?",
+              "What are indexes and when are they useful?",
+              "How would you design a collection for a job application?"
+            ],
+            "SQL": [
+              "Explain INNER JOIN versus LEFT JOIN.",
+              "What is the difference between WHERE and HAVING?",
+              "How would you find the second-highest salary?"
+            ],
+            "MySQL": [
+              "What is database normalization?",
+              "What is the purpose of a primary key and foreign key?",
+              "How would you investigate a slow SQL query?"
+            ],
+            "HTML": [
+              "What are semantic HTML elements?",
+              "Why are labels important for form accessibility?",
+              "What is the difference between block and inline elements?"
+            ],
+            "CSS": [
+              "Explain Flexbox versus CSS Grid.",
+              "How do you build a responsive layout?",
+              "What is the CSS box model?"
+            ],
+            "REST API": [
+              "Explain GET, POST, PUT, PATCH, and DELETE.",
+              "What HTTP status codes do you commonly use?",
+              "How would you secure a REST API?"
+            ],
+            "Git": [
+              "What is the difference between git merge and git rebase?",
+              "How do you resolve a merge conflict?",
+              "What is the purpose of a pull request?"
+            ],
+            "DSA": [
+              "Explain time complexity and Big O notation.",
+              "When would you use a hash map?",
+              "How would you detect a cycle in a linked list?"
+            ],
+            "data structures": [
+              "Compare arrays, linked lists, stacks, and queues.",
+              "When is a hash table useful?",
+              "What are the typical time complexities of searching and inserting?"
+            ],
+            "algorithms": [
+              "Explain binary search and its preconditions.",
+              "How would you choose an appropriate sorting algorithm?",
+              "How do you analyze time and space complexity?"
+            ],
+            "OOP": [
+              "Explain encapsulation, inheritance, abstraction, and polymorphism.",
+              "When would you prefer composition over inheritance?",
+              "What is the difference between an interface and an abstract class?"
+            ],
+            "Spring Boot": [
+              "What is dependency injection?",
+              "How does Spring Boot auto-configuration work?",
+              "How would you validate incoming REST requests?"
+            ],
+            "AWS": [
+              "Which AWS services would you consider for hosting a web application?",
+              "How would you manage application secrets securely?",
+              "How would you monitor an application's health?"
+            ],
+            "Docker": [
+              "What is the difference between an image and a container?",
+              "What is the purpose of a Dockerfile?",
+              "How would you configure environment variables for a container?"
+            ],
+            "machine learning": [
+              "How do you split data into training, validation, and test sets?",
+              "Explain precision, recall, and F1-score.",
+              "How would you detect overfitting?"
+            ],
+            "TensorFlow": [
+              "What is a neural network?",
+              "Why do we use validation data during training?",
+              "How would you evaluate a classification model?"
+            ],
+            "Flask": [
+              "How do you define routes in Flask?",
+              "How would you validate an uploaded file?",
+              "How do you organize a Flask application?"
+            ],
+            "Firebase": [
+              "How does Firebase Authentication work?",
+              "How would you secure access to application data?",
+              "How would you handle authentication state in a frontend?"
+            ],
+            "JWT": [
+              "What information does a JWT contain?",
+              "How should access tokens be handled securely?",
+              "What is the difference between authentication and authorization?"
+            ],
+            "testing": [
+              "What is the difference between unit and integration testing?",
+              "How would you test a REST endpoint?",
+              "What should you test when a form submits invalid data?"
+            ],
+            "problem solving": [
+              "How do you break a complex technical problem into smaller steps?",
+              "Describe a bug you solved and how you isolated its cause.",
+              "How do you evaluate whether a solution is efficient?"
+            ],
+            "communication": [
+              "How would you explain a technical issue to a non-technical teammate?",
+              "Describe a time you received feedback and acted on it.",
+              "How do you communicate a delay or blocker to your team?"
+            ],
+            "GitHub": [
+              "How do you use branches and pull requests in a team?",
+              "What information belongs in a useful commit message?",
+              "How do you review another developer's changes?"
+            ]
+          };
+
+          const levelQuestions: Record<string, string[]> = {
+            Beginner: [
+              "Explain the fundamentals of this skill and give a practical example.",
+              "Describe a simple task you could complete using this technology."
+            ],
+            Intermediate: [
+              "Describe a real implementation challenge and how you would solve it.",
+              "How would you debug a failure in a production-like environment?"
+            ],
+            Advanced: [
+              "Compare alternative approaches and justify your technical trade-offs.",
+              "How would you improve scalability, reliability, security, and performance?"
+            ]
+          };
+
+          const asked = new Set<string>();
+
+          for (const skill of jdSkills) {
+            const skillQuestionsForJD = skillQuestions[skill] || [];
+
+            for (const question of skillQuestionsForJD) {
+              const key = question.toLowerCase();
+
+              if (!asked.has(key)) {
+                asked.add(key);
+                add(
+                  `JD Skill: ${skill}`,
+                  question,
+                  `Start by explaining the core concept, then give a practical example. Connect your answer to the job requirements and, where possible, a project you have worked on.`
+                );
+              }
+            }
+
+            if (
+              level === "Intermediate" ||
+              level === "Advanced"
+            ) {
+              add(
+                `JD Skill: ${skill}`,
+                levelQuestions[level][0] + ` (${skill})`,
+                `Explain the approach step by step, discuss alternatives, and describe how you would test the solution. Use a relevant example from your experience if possible.`
+              );
+            }
+
+            if (level === "Advanced") {
+              add(
+                `Advanced: ${skill}`,
+                levelQuestions.Advanced[1] + ` (${skill})`,
+                "Discuss likely bottlenecks, trade-offs, error handling, security, and how you would measure whether the solution improved."
+              );
+            }
+          }
+
+          // Interview questions about gaps in the resume
+          for (const skill of missingSkills) {
+            add(
+              "JD Skill Gap",
+              `The job description asks for ${skill}, which was not clearly found in your resume. What do you know about it?`,
+              `If you have used ${skill}, describe your experience accurately. Otherwise, explain your current understanding and how you would learn it. Do not claim experience you do not have.`
+            );
+          }
+
+          // HR questions
+          add(
+            "HR",
+            "Tell me about yourself and why you are interested in this role.",
+            "Give a concise introduction covering your education, relevant skills, one strong project, and why the role fits your goals."
+          );
+
+          add(
+            "HR",
+            "Describe a difficult problem you faced and how you handled it.",
+            "Use the STAR method: Situation, Task, Action, and Result. Focus on your personal contribution and what you learned."
+          );
+
+          add(
+            "HR",
+            "Why should we hire you for this position?",
+            "Connect two or three relevant strengths to the JD. Support them with examples from projects, coursework, internships, or other real experience."
+          );
+
+          const uniqueQuestions = questions.filter((item, index, array) =>
+            array.findIndex(other =>
+              other.question.toLowerCase() === item.question.toLowerCase()
+            ) === index
+          );
+
+          const report = [
+            "PERSONALIZED INTERVIEW PREPARATION",
+            `Difficulty: ${level}`,
+            "",
+            "JOB DESCRIPTION SKILL SUMMARY",
+            `Skills identified in JD: ${jdSkills.join(", ") || "No known skills detected. Review the JD wording."}`,
+            `Matching resume skills: ${matchedSkills.join(", ") || "No known matches detected."}`,
+            `Skills to review: ${missingSkills.join(", ") || "No known skill gaps detected."}`,
+            "",
+            `TOTAL QUESTIONS: ${uniqueQuestions.length}`,
+            "",
+            ...uniqueQuestions.flatMap((item, index) => [
+              `${index + 1}. [${item.category}] ${item.question}`,
+              `Sample answer guidance: ${item.answer}`,
+              ""
+            ]),
+            "SUGGESTED PREPARATION PLAN",
+            "1. Review the technical skills required in the job description.",
+            "2. Practice explaining each relevant resume project and your contribution.",
+            "3. Practice coding and problem-solving questions at your selected difficulty.",
+            "4. Prepare honest STAR-method examples for behavioral questions.",
+            "5. Revisit skills listed as gaps and practice explaining your current understanding."
+          ];
+
+          if (output) {
+            output.innerText = report.join("\n");
+          }
+        }}
+        style={{
+          background: "#7c3aed",
+          color: "white",
+          border: 0,
+          borderRadius: 8,
+          padding: "12px 18px",
+          cursor: "pointer",
+          fontWeight: 600,
+        }}
+      >
+        Generate Personalized Questions
+      </button>
+
+      <pre
+        id="interview-result"
+        style={{
+          whiteSpace: "pre-wrap",
+          overflowWrap: "anywhere",
+          lineHeight: 1.8,
+          color: "#cbd5e1",
+          marginTop: 24,
+          fontFamily: "inherit",
+        }}
+      />
+      <p style={{ color: "#94a3b8", fontSize: 12 }}>
+        This free version uses predefined question templates and keyword matching.
+        Sample answers are guidance, not AI-generated answers. Skill detection
+        is limited to the included keyword list.
+      </p>
+    </div>
+  </section>
+)}
+
         </main>
 <footer
   style={{
