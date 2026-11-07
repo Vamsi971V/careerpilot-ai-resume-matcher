@@ -27,8 +27,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString();
 
-const API_URL = "http://localhost:5000";
-
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 type AnalysisResult = {
   id?: string;
   _id?: string;
@@ -359,20 +359,23 @@ function App() {
     setAnalysis(null);
 
     try {
-      const formData = new FormData();
-      formData.append("resume", selectedFile);
-      formData.append("jobDescription", jobDescription);
+      
 
-      const response = await fetch(`${API_URL}/api/analyze`, {
-        method: "POST",
-        body: formData,
-      });
+const formData = new FormData();
+formData.append("resume", selectedFile);
+formData.append("jobDescription", jobDescription);
 
-      const data = await response.json();
+const response = await fetch(`${API_URL}/api/analyze`, {
+  method: "POST",
+  body: formData,
+});
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Resume analysis failed.");
-      }
+
+const data = await response.json();
+
+if (!response.ok) {
+  throw new Error(data.message || "Resume analysis failed");
+}
 
       setAnalysis(normalizeAnalysis(data.result));
       setNotice("Resume analysis completed successfully.");
@@ -1570,6 +1573,7 @@ function App() {
 
   
 
+
 <button
   onClick={async () => {
     const resumeInput = document.getElementById(
@@ -1614,126 +1618,153 @@ function App() {
       const resumeText = await extractResumeText(file);
 
       if (!resumeText?.trim()) {
-        result.innerText =
-          "No readable text found in this PDF.";
+        result.innerText = "No readable text found in this PDF.";
         return;
       }
 
-     
+      const normalizeText = (text: string): string =>
+        text
+          .toLowerCase()
+          .replace(/c\+\+/g, "cplusplus")
+          .replace(/c#/g, "csharp")
+          .replace(/\.net/g, "dotnet")
+          .replace(/node\.js/g, "nodejs")
+          .replace(/react\.js/g, "react")
+          .replace(/rest\s+apis?/g, "restapi")
+          .replace(/[^a-z0-9+#]+/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
 
-const normalizeText = (text: string): string =>
-  text
-    .toLowerCase()
-    .replace(/c\+\+/g, " cpp ")
-    .replace(/c#/g, " csharp ")
-    .replace(/\.net/g, " dotnet ")
-    .replace(/node\.js/g, " nodejs ")
-    .replace(/react\.js/g, " reactjs ")
-    .replace(/[^a-z0-9+#.\s-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+      const resumeNormalized = normalizeText(resumeText);
+      const jdNormalized = normalizeText(jobDescription);
 
-const stopWords = new Set([
-  "a", "an", "and", "are", "as", "at", "be", "been",
-  "being", "by", "for", "from", "had", "has", "have",
-  "he", "her", "his", "in", "into", "is", "it", "its",
-  "of", "on", "or", "our", "ours", "she", "that", "the",
-  "their", "them", "they", "this", "those", "to", "was",
-  "were", "will", "with", "within", "you", "your", "we",
-  "who", "what", "when", "where", "which", "while", "can",
-  "could", "should", "would", "must", "may", "might", "not",
-  "than", "then", "also", "such", "other", "more", "most",
-  "some", "any", "all", "each", "both", "etc", "job", "role",
-  "position", "candidate", "candidates", "responsibilities",
-  "responsibility", "requirements", "required", "preferred",
-  "qualification", "qualifications", "years", "year", "work",
-  "working", "ability", "abilities", "knowledge", "skills",
-  "skill", "strong", "good", "excellent", "relevant",
-  "including", "using", "use", "used", "support", "ensure",
-  "help", "team", "teams", "various", "related", "appropriate",
-  "experience", "description", "consistently", "individuals",
-  "expected", "demonstrating", "against", "others"
-]);
+      const skills = [
+        // Programming and software development
+        "java",
+        "python",
+        "c",
+        "cplusplus",
+        "csharp",
+        "javascript",
+        "typescript",
+        "react",
+        "nodejs",
+        "express",
+        "mongodb",
+        "mysql",
+        "sql",
+        "html",
+        "css",
+        "git",
+        "github",
+        "restapi",
+        "data structures",
+        "algorithms",
+        "problem solving",
+        "api development",
+        "software development",
+        "full stack",
+        "machine learning",
+        "deep learning",
+        "tensorflow",
+        "pytorch",
+        "computer networks",
+        "operating systems",
+        "database management",
 
-const tokenize = (text: string): string[] =>
-  normalizeText(text)
-    .split(/\s+/)
-    .filter(word =>
-      word.length > 1 &&
-      !stopWords.has(word) &&
-      !/^\d+$/.test(word)
-    );
+        // Electronics and communication
+        "electronics",
+        "electronics and communication engineering",
+        "digital electronics",
+        "analog electronics",
+        "embedded systems",
+        "embedded c",
+        "microcontrollers",
+        "pcb design",
+        "circuit design",
+        "circuit simulation",
+        "uart",
+        "spi",
+        "i2c",
+        "matlab",
+        "simulink",
+        "verilog",
+        "systemverilog",
+        "fpga",
+        "rtl design",
+        "linux",
+        "communication systems",
+        "signal processing",
+        "vlsi",
+        "hardware testing",
+        "debugging",
+        "oscilloscope",
+        "multimeter",
 
-// Build unique single words and meaningful phrases.
-const getTerms = (text: string): Set<string> => {
-  const words = tokenize(text);
-  const terms = new Set(words);
+        // Data and business
+        "data analysis",
+        "power bi",
+        "excel",
+        "financial analysis",
+        "accounting",
+        "sales",
+        "marketing",
+        "customer service",
+        "project management",
+        "communication skills",
+        "autocad",
+        "quality assurance",
+        "manual testing",
+        "automation testing"
+      ];
 
-  for (let i = 0; i < words.length; i++) {
-    if (i + 1 < words.length) {
-      terms.add(`${words[i]} ${words[i + 1]}`);
-    }
-    if (i + 2 < words.length) {
-      terms.add(
-        `${words[i]} ${words[i + 1]} ${words[i + 2]}`
+      const containsSkill = (
+        text: string,
+        skill: string
+      ): boolean => {
+        const normalizedSkill = normalizeText(skill);
+        const escapedSkill = normalizedSkill.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          "\\$&"
+        );
+
+        return new RegExp(
+          `(^| )${escapedSkill}( |$)`
+        ).test(text);
+      };
+
+      // Only count supported skills that appear in the job description.
+      const jdSkills = skills.filter((skill) =>
+        containsSkill(jdNormalized, skill)
       );
-    }
-  }
 
-  return terms;
-};
+      const matchedSkills = jdSkills.filter((skill) =>
+        containsSkill(resumeNormalized, skill)
+      );
 
-const resumeTerms = getTerms(resumeText);
-const jdTerms = getTerms(jobDescription);
+      const missingSkills = jdSkills.filter(
+        (skill) => !matchedSkills.includes(skill)
+      );
 
-// Prefer longer phrases when they match, so a phrase and
-// its component words are not all counted as separate matches.
-const matchedPhrases = Array.from(jdTerms)
-  .filter(term => term.includes(" ") && resumeTerms.has(term))
-  .sort((a, b) => b.length - a.length);
+      if (jdSkills.length === 0) {
+        result.innerText =
+          "No supported skills were detected in this job description. " +
+          "Try adding relevant skills to the skill dictionary.";
+        return;
+      }
 
-const coveredWords = new Set<string>();
+      const score = Math.round(
+        (matchedSkills.length / jdSkills.length) * 100
+      );
 
-for (const phrase of matchedPhrases) {
-  const parts = phrase.split(" ");
-  if (parts.every(part => !coveredWords.has(part))) {
-    parts.forEach(part => coveredWords.add(part));
-  }
-}
-
-const requiredTerms = Array.from(jdTerms).filter(term => {
-  if (!term.includes(" ")) return true;
-
-  const parts = term.split(" ");
-  return !parts.every(part => coveredWords.has(part));
-});
-
-const matchedTerms = requiredTerms.filter(term =>
-  resumeTerms.has(term)
-);
-
-const missingTerms = requiredTerms.filter(term =>
-  !resumeTerms.has(term)
-);
-
-if (requiredTerms.length === 0) {
-  result.innerText = "No meaningful JD requirements were detected.";
-  return;
-}
-
-const score = Math.round(
-  (matchedTerms.length / requiredTerms.length) * 100
-);
-
-result.innerText =
-  `Estimated Resume–JD Keyword Match: ${score}%\n\n` +
-  `Matched terms: ${matchedTerms.length}\n` +
-  `Unique JD terms checked: ${requiredTerms.length}\n\n` +
-  `Common terms:\n${matchedTerms.join(", ") || "None"}\n\n` +
-  `Terms not detected:\n${missingTerms.join(", ") || "None"}\n\n` +
-  `Note: This is a rule-based keyword estimate, not an official ATS score.`;
-
-
+      result.innerText =
+        `Estimated Resume-JD Skill Match: ${score}%\n\n` +
+        `Matched skills: ${matchedSkills.length}\n` +
+        `Relevant JD skills checked: ${jdSkills.length}\n\n` +
+        `Matched skills:\n${matchedSkills.join(", ") || "None"}\n\n` +
+        `Skills not detected:\n${missingSkills.join(", ") || "None"}\n\n` +
+        "Note: This is a basic dictionary-based estimate, " +
+        "not an official ATS score.";
     } catch (error) {
       result.innerText =
         error instanceof Error
@@ -1753,6 +1784,7 @@ result.innerText =
 >
   Check Resume Score
 </button>
+
 
 
 

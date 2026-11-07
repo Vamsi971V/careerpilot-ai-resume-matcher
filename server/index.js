@@ -96,52 +96,84 @@ function getKeywords(text = "") {
   return keywords;
 }
 
+
+const SKILL_DICTIONARY = [
+  // Programming and software
+  "Java", "Python", "JavaScript", "TypeScript", "C++", "C#",
+  "C", "SQL", "R", "PHP", "Ruby", "Go", "Rust", "Kotlin",
+  "Swift", "React", "Angular", "Vue.js", "Node.js", "Express.js",
+  "HTML", "CSS", "REST API", "GraphQL", "Microservices",
+  "Data Structures and Algorithms", "Object-Oriented Programming",
+  "Git", "GitHub", "Docker", "Kubernetes", "AWS", "Azure", "GCP",
+  "CI/CD", "Linux", "Unit Testing", "Selenium",
+
+  // Data and AI
+  "Machine Learning", "Deep Learning", "Natural Language Processing",
+  "Computer Vision", "TensorFlow", "PyTorch", "Pandas", "NumPy",
+  "Power BI", "Tableau", "Excel", "Data Analysis", "Data Visualization",
+  "Statistics", "ETL", "Apache Spark", "Hadoop", "Data Modeling",
+
+  // Electronics and electrical
+  "Embedded C", "Embedded Systems", "Microcontrollers",
+  "Microprocessors", "Analog Electronics", "Digital Electronics",
+  "Communication Systems", "Digital Communication", "MATLAB",
+  "Simulink", "Verilog", "VHDL", "PCB Design", "Arduino", "Raspberry Pi",
+  "Internet of Things", "PLC", "SCADA", "AutoCAD Electrical",
+  "Circuit Design", "Power Systems", "Control Systems",
+
+  // Mechanical and civil
+  "SolidWorks", "CATIA", "ANSYS", "GD&T", "AutoCAD",
+  "Revit", "STAAD.Pro", "ETABS", "Structural Analysis",
+  "Project Planning", "Quantity Surveying", "BIM",
+
+  // Business, HR, finance and operations
+  "Recruitment", "Talent Acquisition", "Payroll", "HRIS",
+  "Applicant Tracking Systems", "Employee Relations",
+  "Financial Modeling", "Financial Analysis", "Accounting",
+  "Bookkeeping", "Budgeting", "Forecasting", "Auditing",
+  "Risk Management", "Taxation", "SAP", "Salesforce",
+  "Customer Relationship Management", "Supply Chain Management",
+  "Inventory Management", "Project Management", "Agile", "Scrum",
+
+  // Marketing and design
+  "SEO", "Search Engine Optimization", "Google Analytics",
+  "Google Ads", "Content Marketing", "Social Media Marketing",
+  "Figma", "Adobe Photoshop", "Adobe Illustrator",
+  "User Experience Design", "User Interface Design",
+
+  // General professional skills
+  "Communication Skills", "Leadership", "Teamwork",
+  "Problem Solving", "Critical Thinking", "Time Management"
+];
+
 function getRequiredSkills(text = "") {
-  const keywords = getKeywords(text);
+  const found = new Set();
 
-  // Ignore generic words that do not describe a useful requirement.
-  const genericTerms = new Set([
-    "experience",
-    "years",
-    "year",
-    "work",
-    "working",
-    "role",
-    "responsibilities",
-    "responsibility",
-    "candidate",
-    "team",
-    "ability",
-    "skills",
-    "skill",
-    "knowledge",
-    "strong",
-    "good",
-    "excellent",
-    "required",
-    "preferred",
-    "including",
-    "using",
-    "related",
-    "development",
-  ]);
+  for (const skill of SKILL_DICTIONARY) {
+    const escaped = skill.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&"
+    );
 
-  return [...keywords].filter((keyword) => {
-    if (keyword.length < 2 || /^\d+$/.test(keyword)) {
-      return false;
+    const pattern = new RegExp(
+      `(^|[^a-z0-9])${escaped}(?=$|[^a-z0-9])`,
+      "i"
+    );
+
+    if (pattern.test(text)) {
+      found.add(skill.toLowerCase());
     }
+  }
 
-    // Filter generic single words but retain useful phrases.
-    if (!keyword.includes(" ") && genericTerms.has(keyword)) {
-      return false;
-    }
-
-    return true;
-  });
+  return [...found];
 }
 
 
-
+function containsSkill(text, skill) {
+  const escapedSkill = skill.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`\\b${escapedSkill}\\b`, "i");
+  return regex.test(text);
+}
 function generateSuggestions(
   resumeText,
   matchedSkills,
@@ -198,21 +230,29 @@ let analysesCollection;
 
 
 
-function calculateMatch(resumeText, jobDescription) {
-  const resumeKeywords = getKeywords(resumeText || "");
-  const requiredSkills = getRequiredSkills(jobDescription || "");
 
-  const matchedSkills = requiredSkills.filter((skill) =>
-    resumeKeywords.has(skill)
+function calculateMatch(resumeText, jobDescription) {
+  const resumeSkills = new Set(
+    getRequiredSkills(resumeText || "")
+  );
+
+  const requiredSkills = getRequiredSkills(
+    jobDescription || ""
+  );
+
+  const matchedSkills = requiredSkills.filter(
+    (skill) => resumeSkills.has(skill)
   );
 
   const missingSkills = requiredSkills.filter(
-    (skill) => !resumeKeywords.has(skill)
+    (skill) => !resumeSkills.has(skill)
   );
 
   const matchScore =
     requiredSkills.length > 0
-      ? Math.round((matchedSkills.length / requiredSkills.length) * 100)
+      ? Math.round(
+          (matchedSkills.length / requiredSkills.length) * 100
+        )
       : 0;
 
   const suggestions = generateSuggestions(
@@ -230,6 +270,7 @@ function calculateMatch(resumeText, jobDescription) {
     suggestions,
   };
 }
+
 
 // -------------------- BASIC ROUTES --------------------
 
@@ -264,13 +305,22 @@ app.post("/api/analyze", upload.single("resume"), async (req, res) => {
         message: "Please upload a PDF resume.",
       });
     }
+   
+const jobDescription =
+  typeof req.body.jobDescription === "string"
+    ? req.body.jobDescription
+    : typeof req.body.jobDescriptionText === "string"
+      ? req.body.jobDescriptionText
+      : "";
 
-    const jobDescription =
-      typeof req.body.jobDescription === "string"
-        ? req.body.jobDescription
-        : typeof req.body.jobDescriptionText === "string"
-          ? req.body.jobDescriptionText
-          : "";
+if (!jobDescription.trim()) {
+  return res.status(400).json({
+    success: false,
+    message: "Please provide a job description.",
+  });
+}
+
+
 
     const parsed = await pdfParse(req.file.buffer);
     const resumeText = parsed.text || "";
