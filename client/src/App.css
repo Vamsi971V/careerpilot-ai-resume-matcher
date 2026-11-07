@@ -599,3 +599,82 @@ footer {
   color: #64748b;
   line-height: 1.7;
 }
+
+/* Mobile responsive layout fixes */
+@media screen and (max-width: 650px) {
+  .app {
+    width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  .sidebar {
+    position: static !important;
+    width: 100% !important;
+    height: auto;
+    padding: 16px;
+    border-right: none;
+    border-bottom: 1px solid #ececf4;
+  }
+
+  .brand {
+    margin-bottom: 18px;
+  }
+
+  .sidebar nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .nav-item {
+    display: inline-flex;
+    margin: 0;
+    max-width: 100%;
+  }
+
+  .main-content {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 20px 15px;
+  }
+
+  .topbar,
+  .section-title {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .welcome {
+    width: 100%;
+    min-width: 0;
+    padding: 24px 18px;
+  }
+
+  .welcome > div:first-child {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .welcome h2 {
+    overflow-wrap: anywhere;
+  }
+
+  .stats-grid,
+  .analyzer-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stat-card,
+  .input-card {
+    min-width: 0;
+    width: 100%;
+  }
+
+  img,
+  canvas {
+    max-width: 100%;
+  }
+}
